@@ -1,0 +1,435 @@
+---
+title: "hippodeep_analysis_github"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, echo=FALSE, warning=FALSE}
+library(psych)
+library(ggplot2)
+library(cowplot)
+```
+
+```{r, echo=FALSE}
+
+##data intake
+
+workingdir=c('/Volumes/four_d/Artemis/stroke/hippodeep/github_ready/csv') ##path to directory with spreadsheets in csv format
+
+
+
+metadata <- read.csv(paste(workingdir,'Atlas_compare.csv',sep="/"))        ##includes information about participants such as lesion size, lesioned hemisphere, etc
+volumes<- read.csv(paste(workingdir,'volumes.csv',sep="/"))          ##generated with the script Step4_extract_volume.sh
+DICE<-read.csv(paste(workingdir,'Dice.csv',sep="/")) ##generated with script Step5_2_dicecompile.R
+
+```
+
+
+
+```{r, echo=FALSE}
+##Due to the wide range in lesion size, we report lesion volume in cubic centimeters (cc) 
+##1 cubic millimeters (mm^3) is equal to 0.001cc
+##we create a column in metadata where we divide lesion volume by 1000 to report in cc
+
+metadata$Lesion_size_cc<-(metadata$Lesion_size)/1000
+```
+
+
+##Lesion Size Summary
+###Lesion Groups: 1=small, 2=medium, 3=large 
+###Hemisphere: 1=Left Hemisphere Lesion 2=Right Hemisphere Lesion
+```{r echo=FALSE}
+
+##this function allows you to get mean and standard deviation by specified groups. It is also necessary for later in the analysis where we make bargraphs
+data_summary <- function(data, varname, groupnames){
+  require(plyr)
+  summary_func <- function(x, col){
+    c(mean = mean(x[[col]], na.rm=TRUE),
+      sd = sd(x[[col]], na.rm=TRUE))
+  }
+  data_sum<-ddply(data, groupnames, .fun=summary_func,
+                  varname)
+  data_sum <- rename(data_sum, c("mean" = varname))
+ return(data_sum)
+}
+
+##summarize lesion size data by lesion size group and lesioned hemisphere
+##for Size 1=small, 2=medium, 3=large
+##for Hemisphere 1=left hemisphere lesion, 2=right hemisphere lesion
+data_summary(metadata, varname="Lesion_size_cc", 
+                    groupnames=c("Size","Hemisphere")) 
+```
+
+##Volume analysis
+```{r, echo=FALSE}
+#merge meta data with volumes spreadsheet
+mydatas<-merge(metadata,volumes)
+
+#split into contralesional 
+Contra_manual_volume<-matrix(data=NA, nrow=nrow(mydatas), ncol=1)
+Contra_FSaseg_volume<-matrix(data=NA, nrow=nrow(mydatas), ncol=1)
+Contra_hippodeep_volume<-matrix(data=NA, nrow=nrow(mydatas), ncol=1)
+Contra_FSsubfields_volume<-matrix(data=NA, nrow=nrow(mydatas), ncol=1)
+
+###if lesioned hemisphere==2 (right hemisphere lesion) contralesional volume will be that of the left hemisphere
+for(ii in 1:nrow(mydatas)){
+  if(mydatas$Hemisphere[ii]==2){
+    Contra_manual_volume[ii,]<-mydatas$Manual_L[ii]
+    Contra_FSaseg_volume[ii,]<-mydatas$FSaseg_L[ii]
+    Contra_hippodeep_volume[ii,]<-mydatas$Hippodeep_L[ii]
+    Contra_FSsubfields_volume[ii,]<-mydatas$FSsubfields_L[ii]
+###else (if lesioned hemisphere==1 (left hemisphere lesion) contralesional volume will be that of the right hemisphere
+  }
+  else{
+    Contra_manual_volume[ii,]<-mydatas$Manual_R[ii]
+    Contra_FSaseg_volume[ii,]<-mydatas$FSaseg_R[ii]
+    Contra_hippodeep_volume[ii,]<-mydatas$Hippodeep_R[ii]
+    Contra_FSsubfields_volume[ii,]<-mydatas$FSsubfields_R[ii]
+  }
+}
+
+#split into ipsilesional
+Ipsi_manual_volume<-matrix(data=NA, nrow=nrow(mydatas), ncol=1)
+Ipsi_FSaseg_volume<-matrix(data=NA, nrow=nrow(mydatas), ncol=1)
+Ipsi_hippodeep_volume<-matrix(data=NA, nrow=nrow(mydatas), ncol=1)
+Ipsi_FSsubfields_volume<-matrix(data=NA, nrow=nrow(mydatas), ncol=1)
+
+###if lesioned hemisphere==1 (left hemisphere lesion) ipsilesional volume will be that of the left hemisphere
+for(ii in 1:nrow(mydatas)){
+  if(mydatas$Hemisphere[ii]==1){
+    Ipsi_manual_volume[ii,]<-mydatas$Manual_L[ii]
+    Ipsi_FSaseg_volume[ii,]<-mydatas$FSaseg_L[ii]
+    Ipsi_hippodeep_volume[ii,]<-mydatas$Hippodeep_L[ii]
+    Ipsi_FSsubfields_volume[ii,]<-mydatas$FSsubfields_L[ii]
+  }
+###else (if lesioned hemisphere==2 (right hemisphere lesion)) ipsilesional volume will be that of the right hemisphere
+  else{
+    Ipsi_manual_volume[ii,]<-mydatas$Manual_R[ii]
+    Ipsi_FSaseg_volume[ii,]<-mydatas$FSaseg_R[ii]
+    Ipsi_hippodeep_volume[ii,]<-mydatas$Hippodeep_R[ii]
+    Ipsi_FSsubfields_volume[ii,]<-mydatas$FSsubfields_R[ii]
+  }
+}
+#reformat data so that we can make a nice bargraph
+MANUAL_vol <- mydatas[,c("SubjID","Hemisphere","Size","Lesion_size","Site")]
+MANUAL_vol$Method<-rep("Manual",nrow(MANUAL_vol))
+FSASEG_vol <- mydatas[,c("SubjID","Hemisphere","Size","Lesion_size","Site")]
+FSASEG_vol$Method<-rep("FS",nrow(FSASEG_vol))
+HIPPODEEP_vol <- mydatas[,c("SubjID","Hemisphere","Size","Lesion_size","Site")]
+HIPPODEEP_vol$Method<-rep("Hippodeep",nrow(HIPPODEEP_vol))
+FSSUBFIELDS_vol <- mydatas[,c("SubjID","Hemisphere","Size","Lesion_size","Site")]
+FSSUBFIELDS_vol$Method<-rep("FSsubfields",nrow(FSSUBFIELDS_vol))
+
+#ICC function requires that each variable has its own column so reformating is necessary
+##paste contra and ipsi volumes for each method as their own column to run ICC
+volumes$Ipsi_manual_volume<-Ipsi_manual_volume
+volumes$Ipsi_FSaseg_volume<-Ipsi_FSaseg_volume
+volumes$Ipsi_hippodeep_volume<-Ipsi_hippodeep_volume
+volumes$Ipsi_FSsubfields_volume<-Ipsi_FSsubfields_volume
+volumes$Contra_manual_volume<-Contra_manual_volume
+volumes$Contra_FSaseg_volume<-Contra_FSaseg_volume
+volumes$Contra_hippodeep_volume<-Contra_hippodeep_volume
+volumes$Contra_FSsubfields_volume<-Contra_FSsubfields_volume
+
+
+```
+
+###Intra-class correlation coefficient
+```{r, echo=FALSE}
+##calculate ICC and create a table with the values for each 
+ICC_summary<-matrix(data=NA, nrow=5, ncol=3)
+ICC_summary[1,1]<-"Method"
+ICC_summary[1,2]<-"ICC_Ipsilesional"
+ICC_summary[1,3]<-"ICC_Contralesional"
+
+
+#Manual vs FS-Aseg
+ICC_summary[2,1]<-"FSasegvsManual"
+
+##ipsilesional
+Ipsi_ICC_MvF <- data.frame(volumes$SubjID, volumes$Ipsi_manual_volume, volumes$Ipsi_FSaseg_volume)
+names(Ipsi_ICC_MvF) <- c("SubjID", "Ipsi_Manual", "Ipsi_FSAseg")
+rownames(Ipsi_ICC_MvF) <-paste(Ipsi_ICC_MvF$SubjID) ##subject names should be used as row names
+Ipsi_ICC_MvF$SubjID <- NULL##subject name column is no longer necessary now that the rows are named by subject
+summary_ICC_MvF_I<-ICC(Ipsi_ICC_MvF,lmer=FALSE)
+##use the single fixed raters ICC3 value of ICC which is the third row, 2nd column
+ICC_summary[2,2]<-summary_ICC_MvF_I$results[3,2]
+##contralesional
+Contra_ICC_MvF <- data.frame(volumes$SubjID, volumes$Contra_manual_volume, volumes$Contra_FSaseg_volume)
+names(Contra_ICC_MvF) <- c("SubjID", "Contra_Manual", "Contra_FSAseg")
+rownames(Contra_ICC_MvF) <-paste(Contra_ICC_MvF$SubjID) ##subject names should be used as row names
+Contra_ICC_MvF$SubjID <- NULL ##subject name column is no longer necessary now that the rows are named by subject
+summary_ICC_MvF_C<-ICC(Contra_ICC_MvF,lmer=FALSE)
+##use the single fixed raters ICC3 value of ICC which is the third row, 2nd column
+ICC_summary[2,3]<-summary_ICC_MvF_C$results[3,2]
+
+
+
+#Manual vs FSSubfields
+ICC_summary[3,1]<-"FSsubfieldsvsManual"
+
+##ipsilesional
+Ipsi_ICC_MvFSsubfields <- data.frame(volumes$SubjID, volumes$Ipsi_manual_volume, volumes$Ipsi_FSsubfields_volume)
+names(Ipsi_ICC_MvFSsubfields) <- c("SubjID", "Ipsi_manual", "Ipsi_FSsubfields")
+rownames(Ipsi_ICC_MvFSsubfields) <-paste(Ipsi_ICC_MvFSsubfields$SubjID)  ##subject names should be used as row names
+Ipsi_ICC_MvFSsubfields$SubjID <- NULL ##subject name column is no longer necessary now that the rows are named by subject
+summary_ICC_MvFSsubfields_I<-ICC(Ipsi_ICC_MvFSsubfields,lmer=FALSE)
+##use the single fixed raters ICC3 value of ICC which is the third row, 2nd column
+ICC_summary[3,2]<-summary_ICC_MvFSsubfields_I$results[3,2]
+#contralesional
+Contra_ICC_MvFSsubfields <- data.frame(volumes$SubjID, volumes$Contra_manual_volume, volumes$Contra_FSsubfields_volume)
+names(Contra_ICC_MvFSsubfields) <- c("SubjID", "Contra_manual", "Contra_FSsubfields")
+rownames(Contra_ICC_MvFSsubfields) <-paste(Contra_ICC_MvFSsubfields$SubjID)  ##subject names should be used as row names
+Contra_ICC_MvFSsubfields$SubjID <- NULL ##subject name column is no longer necessary now that the rows are named by subject
+summary_ICC_MvFSsubfields_C<-ICC(Contra_ICC_MvFSsubfields,lmer=FALSE)
+##use the single fixed raters ICC3 value of ICC which is the third row, 2nd column
+ICC_summary[3,3]<-summary_ICC_MvFSsubfields_C$results[3,2]
+
+
+#Manual vs Hippodeep
+ICC_summary[4,1]<-"HippodeepvsManual"
+
+##ipsilesional
+Ipsi_ICC_MvHippodeep <- data.frame(volumes$SubjID, volumes$Ipsi_manual_volume, volumes$Ipsi_hippodeep_volume)
+names(Ipsi_ICC_MvHippodeep) <- c("SubjID", "Ipsi_manual", "Ipsi_Hippodeep")
+rownames(Ipsi_ICC_MvHippodeep) <-paste(Ipsi_ICC_MvHippodeep$SubjID) ##subject names should be used as row names
+Ipsi_ICC_MvHippodeep$SubjID <- NULL  ##subject name column is no longer necessary now that the rows are named by subject
+summary_ICC_MvHippodeep_I<-ICC(Ipsi_ICC_MvHippodeep,lmer=FALSE)
+##use the single fixed raters ICC3 value of ICC which is the third row, 2nd column
+ICC_summary[4,2]<-summary_ICC_MvHippodeep_I$results[3,2]
+#contralesional
+Contra_ICC_MvHippodeep <- data.frame(volumes$SubjID, volumes$Contra_manual_volume, volumes$Contra_hippodeep_volume)
+names(Contra_ICC_MvHippodeep) <- c("SubjID", "Contra_manual", "Contra_Hippodeep")
+rownames(Contra_ICC_MvHippodeep) <-paste(Contra_ICC_MvHippodeep$SubjID) ##subject names should be used as row names
+Contra_ICC_MvHippodeep$SubjID <- NULL  ##subject name column is no longer necessary now that the rows are named by subject
+summary_ICC_MvHippodeep_C<-ICC(Contra_ICC_MvHippodeep,lmer=FALSE)
+##use the single fixed raters ICC3 value of ICC which is the third row, 2nd column
+ICC_summary[4,3]<-summary_ICC_MvHippodeep_C$results[3,2]
+
+#Subfields vs Hippodeep
+ICC_summary[5,1]<-"FSsubfields vs Hippodeep"
+
+##ipsilesional
+IPSI_ICC_HvS <- data.frame(volumes$SubjID, volumes$Ipsi_FSsubfields_volume, volumes$Ipsi_hippodeep_volume)
+names(IPSI_ICC_HvS) <- c("SubjID", "Ipsi_Subfields", "Ipsi_Hippodeep")
+rownames(IPSI_ICC_HvS) <-paste(IPSI_ICC_HvS$SubjID)
+IPSI_ICC_HvS$SubjID <- NULL
+summary_ICC_HvS_I<-ICC(IPSI_ICC_HvS,lmer=FALSE)
+ICC_summary[5,2]<-summary_ICC_HvS_I$results[3,2]
+
+#contralesional
+Contra_ICC_HvS_C <- data.frame(volumes$SubjID, volumes$Contra_FSsubfields_volume, volumes$Contra_hippodeep_volume)
+names(Contra_ICC_HvS_C) <- c("SubjID", "Contra_Subfields", "Contra_Hippodeep")
+rownames(Contra_ICC_HvS_C) <-paste(Contra_ICC_HvS_C$SubjID) ##subject names should be used as row names
+Contra_ICC_HvS_C$SubjID <- NULL  ##subject name column is no longer necessary now that the rows are named by subject
+summary_ICC_HvS_C<-ICC(Contra_ICC_HvS_C,lmer=FALSE)
+##use the single fixed raters ICC3 value of ICC which is the third row, 2nd column
+ICC_summary[5,3]<-summary_ICC_HvS_C$results[3,2]
+
+ICC_summary
+
+```
+
+
+
+###Pearson's correlation for volumes
+```{r, echo=FALSE}
+##this code creates a table with R, p-value, and t-value of the Pearson's correlation test
+MvF_volume_cor_I<-cor.test(Ipsi_manual_volume, Ipsi_FSaseg_volume, 
+                    method = "pearson")
+MvH_volume_cor_I<-cor.test(Ipsi_manual_volume, Contra_hippodeep_volume, 
+                    method = "pearson")
+MvSF_volume_cor_I<-cor.test(Ipsi_manual_volume, Ipsi_FSsubfields_volume, 
+                    method = "pearson")
+HvSF_volume_cor_I<-cor.test(Ipsi_hippodeep_volume, Ipsi_FSsubfields_volume, 
+                    method = "pearson")
+MvF_volume_cor_C<-cor.test(Contra_manual_volume, Contra_FSaseg_volume, 
+                    method = "pearson")
+MvH_volume_cor_C<-cor.test(Contra_manual_volume, Contra_hippodeep_volume, 
+                    method = "pearson")
+MvSF_volume_cor_C<-cor.test(Contra_manual_volume, Contra_FSsubfields_volume, 
+                    method = "pearson")
+HvSF_volume_cor_C<-cor.test(Contra_hippodeep_volume, Contra_FSsubfields_volume, 
+                    method = "pearson")
+
+
+corr_p<-matrix(data=NA, nrow=5, ncol=7)
+corr_p[1,1]<-"Test"
+corr_p[1,2]<-"Ipsilesional P-value"
+corr_p[1,3]<-"Ipsilesional T-value"
+corr_p[1,4]<-"Ipsilesional Pearson's R"
+corr_p[1,5]<-"Contralesional P-value"
+corr_p[1,6]<-"Contralesional T-value"
+corr_p[1,7]<-"Contralesional Pearson's R"
+
+
+corr_p[2,1]<-"FSaseg vs Manual"
+corr_p[2,2]<-MvF_volume_cor_I$p.value
+corr_p[2,3]<-MvF_volume_cor_I$statistic
+corr_p[2,4]<-MvF_volume_cor_I$estimate
+corr_p[2,5]<-MvF_volume_cor_C$p.value
+corr_p[2,6]<-MvF_volume_cor_C$statistic
+corr_p[2,7]<-MvF_volume_cor_C$estimate
+
+
+corr_p[3,1]<-"FSsubfields vs Manual"
+corr_p[3,2]<-MvSF_volume_cor_I$p.value
+corr_p[3,3]<-MvSF_volume_cor_I$statistic
+corr_p[3,4]<-MvSF_volume_cor_I$estimate
+corr_p[3,5]<-MvSF_volume_cor_C$p.value
+corr_p[3,6]<-MvSF_volume_cor_C$statistic
+corr_p[3,7]<-MvSF_volume_cor_C$estimate
+
+
+corr_p[4,1]<-"Hippodeep vs Manual"
+corr_p[4,2]<-MvH_volume_cor_I$p.value
+corr_p[4,3]<-MvH_volume_cor_I$statistic
+corr_p[4,4]<-MvH_volume_cor_I$estimate
+corr_p[4,5]<-MvH_volume_cor_C$p.value
+corr_p[4,6]<-MvH_volume_cor_C$statistic
+corr_p[4,7]<-MvH_volume_cor_C$estimate
+
+
+
+corr_p[5,1]<-"Hippodeep vs FSsubfields"
+corr_p[5,2]<-HvSF_volume_cor_I$p.value
+corr_p[5,3]<-HvSF_volume_cor_I$statistic
+corr_p[5,4]<-HvSF_volume_cor_I$estimate
+corr_p[5,5]<-HvSF_volume_cor_C$p.value
+corr_p[5,6]<-HvSF_volume_cor_C$statistic
+corr_p[5,7]<-HvSF_volume_cor_C$estimate
+
+
+
+corr_p
+```
+
+
+
+
+##Dice analysis
+
+```{r echo=FALSE}
+
+Atlas_dice<-merge(DICE,metadata)
+
+#assign variable HEM to ipsilesional or contralesional depending on lesioned hemisphere
+HEM<-matrix(data=NA, nrow=nrow(Atlas_dice), ncol=1)
+#loop through data. 
+#Hem is the hemipshere of the specified hippocampus (LEFT, RIGHT)
+#Hemisphere is the lesioned hemisphere (1=left, 2=right)
+#If Hem (left or right hippocampus) =1 and Hemisphere (lesioned hemisphere) is left, then assign ipsilesional
+for(ii in 1:nrow(Atlas_dice)){
+  if(Atlas_dice$Hemisphere[ii]==1 & Atlas_dice$Hem[ii]=="LEFT"){
+    HEM[ii,]<-"IPSI" 
+  }
+  
+ #If Hem= 1 and Hemisphere=RIGHT, then assign contralesional
+  if(Atlas_dice$Hemisphere[ii]==1 & Atlas_dice$Hem[ii]=="RIGHT"){
+    HEM[ii,]<-"CONTRA"
+  }
+  
+    #If Hem= 2 and Hemisphere=RIGHT, then assign ipsilesional
+  if(Atlas_dice$Hemisphere[ii]==2 & Atlas_dice$Hem[ii]=="RIGHT"){
+    HEM[ii,]<-"IPSI"
+  }
+   #If Hem= 2 and Hemisphere=LEFT, then assign contralesional
+  if(Atlas_dice$Hemisphere[ii]==2 & Atlas_dice$Hem[ii]=="LEFT"){
+    HEM[ii,]<-"CONTRA"
+  }
+}
+
+
+Atlas_dice$HEM<-HEM
+
+#Divide the data into contralesional and ipsilesional dataframes
+Ipsi4Dice<-Atlas_dice[which(Atlas_dice$HEM=="IPSI"),]
+Contra4Dice<-Atlas_dice[which(Atlas_dice$HEM=="CONTRA"),]
+
+#further divide the dataframes by test
+Ipsi4Dice_Hippodeep<-Ipsi4Dice[which(Ipsi4Dice$Test=="HippodeepvsManual"),]
+Contra4Dice_Hippodeep<-Contra4Dice[which(Contra4Dice$Test=="HippodeepvsManual"),]
+Ipsi4Dice_FSaseg<-Ipsi4Dice[which(Ipsi4Dice$Test=="FSasegvsManual"),]
+Contra4Dice_FSaseg<-Contra4Dice[which(Contra4Dice$Test=="FSasegvsManual"),]
+Ipsi4Dice_FSsubfields<-Ipsi4Dice[which(Ipsi4Dice$Test=="FSsubfieldsvsManual"),]
+Contra4Dice_FSsubfields<-Contra4Dice[which(Contra4Dice$Test=="FSsubfieldsvsManual"),]
+
+```
+
+###ANOVA
+```{r}
+#2x3x3 ANOVA 
+#Test= hippocampu segmentation method test (HippodeepvsManual, FSasegvsManual, FSsubfieldsvsManual)
+#Size= Lesion size group (1=small, 2=medium, 3=large)
+#HEM= Lesioned hemipshere (IPSI or CONTRA)
+summary(aov(Dice~Test*Size*HEM,data=Atlas_dice))
+```
+
+
+
+####Ipsilesional Dice Average
+```{r, echo=FALSE}
+
+##ipsilesional dice summary
+data_summary(Ipsi4Dice, varname="Dice", 
+                    groupnames=c("Test"))
+```
+####Contralesional Dice Average
+```{r, echo=FALSE}
+
+##contralesional dice summary
+data_summary(Contra4Dice, varname="Dice", 
+                    groupnames=c("Test"))
+
+```
+
+
+
+###Paired t-test
+
+```{r echo=FALSE}
+##paired t-test to follow up ANOVA
+HippodeepvsSubfields_ttest_C<-t.test(Contra4Dice_Hippodeep$Dice,Contra4Dice_FSsubfields$Dice,paired=TRUE)
+HippodeepvsFSaseg_ttest_C<-t.test(Contra4Dice_Hippodeep$Dice,Contra4Dice_FSaseg$Dice,paired=TRUE)
+SubfieldsvsFSaseg_ttest_C<-t.test(Contra4Dice_FSsubfields$Dice,Contra4Dice_FSaseg$Dice,paired=TRUE)
+
+HippodeepvsSubfields_ttest_I<-t.test(Ipsi4Dice_Hippodeep$Dice,Ipsi4Dice_FSsubfields$Dice,paired=TRUE)
+HippodeepvsFSaseg_ttest_I<-t.test(Ipsi4Dice_Hippodeep$Dice,Ipsi4Dice_FSaseg$Dice,paired=TRUE)
+SubfieldsvsFSaseg_ttest_I<-t.test(Ipsi4Dice_FSsubfields$Dice,Ipsi4Dice_FSaseg$Dice,paired=TRUE)
+
+Ttest<-matrix(data=NA, nrow=4, ncol=5)
+Ttest[1,1]<-"Test"
+Ttest[1,2]<-"Ipsi P-value"
+Ttest[1,3]<-"Ipsi T-value"
+Ttest[1,4]<-"Contra P-value"
+Ttest[1,5]<-"Contra T-value"
+
+
+Ttest[2,1]<-"Hippodeep vs FSsubfields"
+Ttest[2,2]<-HippodeepvsSubfields_ttest_I$p.value
+Ttest[2,3]<-HippodeepvsSubfields_ttest_I$statistic
+Ttest[2,4]<-HippodeepvsSubfields_ttest_C$p.value
+Ttest[2,5]<-HippodeepvsSubfields_ttest_C$statistic
+
+
+Ttest[3,1]<-"Hippodeep vs FS Aseg"
+Ttest[3,2]<-HippodeepvsFSaseg_ttest_I$p.value
+Ttest[3,3]<-HippodeepvsFSaseg_ttest_I$statistic
+Ttest[3,4]<-HippodeepvsFSaseg_ttest_C$p.value
+Ttest[3,5]<-HippodeepvsFSaseg_ttest_C$statistic
+
+
+
+Ttest[4,1]<-"FSsubfields vs FS Aseg"
+Ttest[4,2]<-SubfieldsvsFSaseg_ttest_I$p.value
+Ttest[4,3]<-SubfieldsvsFSaseg_ttest_I$statistic
+Ttest[4,4]<-SubfieldsvsFSaseg_ttest_C$p.value
+Ttest[4,5]<-SubfieldsvsFSaseg_ttest_C$statistic
+
+
+Ttest
+
+```
