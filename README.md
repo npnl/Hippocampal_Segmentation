@@ -48,6 +48,7 @@ The best way to keep track of bugs or failures is to open a New Issues on the Gi
 **Referencing**
 
 Please reference our overview paper when using the manual hippocampal segmentations or code
-Zavaliangos-Petropulu et al., (2020). Testing a convolutional neural network-based hippocampal segmentation method in a stroke population. bioRxiv preprint doi: 
+Zavaliangos-Petropulu et al., (2020). Testing a convolutional neural network-based hippocampal segmentation method in a stroke population. bioRxiv preprint doi: https://doi.org/10.1101/2020.01.28.924068
+https://www.biorxiv.org/content/10.1101/2020.01.28.924068v1
 
 
