@@ -17,7 +17,7 @@ library(cowplot)
 
 ##data intake
 
-workingdir=c('/Volumes/four_d/Artemis/stroke/hippodeep/github_ready/csv') ##path to directory with spreadsheets in csv format
+workingdir=c('/Volumes/faculty/thompson/four_d/Artemis/stroke/hippodeep/github_ready_revision_upload/csv') ##path to directory with spreadsheets in csv format
 
 
 
@@ -139,11 +139,17 @@ volumes$Contra_FSsubfields_volume<-Contra_FSsubfields_volume
 
 ###Intra-class correlation coefficient
 ```{r, echo=FALSE}
+
+
 ##calculate ICC and create a table with the values for each 
-ICC_summary<-matrix(data=NA, nrow=5, ncol=3)
+ICC_summary<-matrix(data=NA, nrow=7, ncol=7)
 ICC_summary[1,1]<-"Method"
 ICC_summary[1,2]<-"ICC_Ipsilesional"
-ICC_summary[1,3]<-"ICC_Contralesional"
+ICC_summary[1,3]<-"ICC_lowerbound_Ipsilesional"
+ICC_summary[1,4]<-"ICC_upperbound_Ipsilesional"
+ICC_summary[1,5]<-"ICC_Contralesional"
+ICC_summary[1,6]<-"ICC_lowerbound_Contalesional"
+ICC_summary[1,7]<-"ICC_upperbound_Contalesional"
 
 
 #Manual vs FS-Aseg
@@ -157,6 +163,16 @@ Ipsi_ICC_MvF$SubjID <- NULL##subject name column is no longer necessary now that
 summary_ICC_MvF_I<-ICC(Ipsi_ICC_MvF,lmer=FALSE)
 ##use the single fixed raters ICC3 value of ICC which is the third row, 2nd column
 ICC_summary[2,2]<-summary_ICC_MvF_I$results[3,2]
+##lower bound
+ICC_summary[2,3]<-summary_ICC_MvF_I$results[3,7]
+##upper bound
+ICC_summary[2,4]<-summary_ICC_MvF_I$results[3,8]
+
+
+
+
+
+
 ##contralesional
 Contra_ICC_MvF <- data.frame(volumes$SubjID, volumes$Contra_manual_volume, volumes$Contra_FSaseg_volume)
 names(Contra_ICC_MvF) <- c("SubjID", "Contra_Manual", "Contra_FSAseg")
@@ -164,8 +180,11 @@ rownames(Contra_ICC_MvF) <-paste(Contra_ICC_MvF$SubjID) ##subject names should b
 Contra_ICC_MvF$SubjID <- NULL ##subject name column is no longer necessary now that the rows are named by subject
 summary_ICC_MvF_C<-ICC(Contra_ICC_MvF,lmer=FALSE)
 ##use the single fixed raters ICC3 value of ICC which is the third row, 2nd column
-ICC_summary[2,3]<-summary_ICC_MvF_C$results[3,2]
-
+ICC_summary[2,5]<-summary_ICC_MvF_C$results[3,2]
+##lower bound
+ICC_summary[2,6]<-summary_ICC_MvF_C$results[3,7]
+##upper bound
+ICC_summary[2,7]<-summary_ICC_MvF_C$results[3,8]
 
 
 #Manual vs FSSubfields
@@ -179,6 +198,11 @@ Ipsi_ICC_MvFSsubfields$SubjID <- NULL ##subject name column is no longer necessa
 summary_ICC_MvFSsubfields_I<-ICC(Ipsi_ICC_MvFSsubfields,lmer=FALSE)
 ##use the single fixed raters ICC3 value of ICC which is the third row, 2nd column
 ICC_summary[3,2]<-summary_ICC_MvFSsubfields_I$results[3,2]
+##lower bound
+ICC_summary[3,3]<-summary_ICC_MvFSsubfields_I$results[3,7]
+##upper bound
+ICC_summary[3,4]<-summary_ICC_MvFSsubfields_I$results[3,8]
+
 #contralesional
 Contra_ICC_MvFSsubfields <- data.frame(volumes$SubjID, volumes$Contra_manual_volume, volumes$Contra_FSsubfields_volume)
 names(Contra_ICC_MvFSsubfields) <- c("SubjID", "Contra_manual", "Contra_FSsubfields")
@@ -186,8 +210,11 @@ rownames(Contra_ICC_MvFSsubfields) <-paste(Contra_ICC_MvFSsubfields$SubjID)  ##s
 Contra_ICC_MvFSsubfields$SubjID <- NULL ##subject name column is no longer necessary now that the rows are named by subject
 summary_ICC_MvFSsubfields_C<-ICC(Contra_ICC_MvFSsubfields,lmer=FALSE)
 ##use the single fixed raters ICC3 value of ICC which is the third row, 2nd column
-ICC_summary[3,3]<-summary_ICC_MvFSsubfields_C$results[3,2]
-
+ICC_summary[3,5]<-summary_ICC_MvFSsubfields_C$results[3,2]
+##lower bound
+ICC_summary[3,6]<-summary_ICC_MvFSsubfields_C$results[3,7]
+##upper bound
+ICC_summary[3,7]<-summary_ICC_MvFSsubfields_C$results[3,8]
 
 #Manual vs Hippodeep
 ICC_summary[4,1]<-"HippodeepvsManual"
@@ -200,6 +227,11 @@ Ipsi_ICC_MvHippodeep$SubjID <- NULL  ##subject name column is no longer necessar
 summary_ICC_MvHippodeep_I<-ICC(Ipsi_ICC_MvHippodeep,lmer=FALSE)
 ##use the single fixed raters ICC3 value of ICC which is the third row, 2nd column
 ICC_summary[4,2]<-summary_ICC_MvHippodeep_I$results[3,2]
+##lower bound
+ICC_summary[4,3]<-summary_ICC_MvHippodeep_I$results[3,7]
+##upper bound
+ICC_summary[4,4]<-summary_ICC_MvHippodeep_I$results[3,8]
+
 #contralesional
 Contra_ICC_MvHippodeep <- data.frame(volumes$SubjID, volumes$Contra_manual_volume, volumes$Contra_hippodeep_volume)
 names(Contra_ICC_MvHippodeep) <- c("SubjID", "Contra_manual", "Contra_Hippodeep")
@@ -207,7 +239,11 @@ rownames(Contra_ICC_MvHippodeep) <-paste(Contra_ICC_MvHippodeep$SubjID) ##subjec
 Contra_ICC_MvHippodeep$SubjID <- NULL  ##subject name column is no longer necessary now that the rows are named by subject
 summary_ICC_MvHippodeep_C<-ICC(Contra_ICC_MvHippodeep,lmer=FALSE)
 ##use the single fixed raters ICC3 value of ICC which is the third row, 2nd column
-ICC_summary[4,3]<-summary_ICC_MvHippodeep_C$results[3,2]
+ICC_summary[4,5]<-summary_ICC_MvHippodeep_C$results[3,2]
+##lower bound
+ICC_summary[4,6]<-summary_ICC_MvHippodeep_C$results[3,7]
+##upper bound
+ICC_summary[4,7]<-summary_ICC_MvHippodeep_C$results[3,8]
 
 #Subfields vs Hippodeep
 ICC_summary[5,1]<-"FSsubfields vs Hippodeep"
@@ -219,6 +255,10 @@ rownames(IPSI_ICC_HvS) <-paste(IPSI_ICC_HvS$SubjID)
 IPSI_ICC_HvS$SubjID <- NULL
 summary_ICC_HvS_I<-ICC(IPSI_ICC_HvS,lmer=FALSE)
 ICC_summary[5,2]<-summary_ICC_HvS_I$results[3,2]
+##lower bound
+ICC_summary[5,3]<-summary_ICC_HvS_I$results[3,7]
+##upper bound
+ICC_summary[5,4]<-summary_ICC_HvS_I$results[3,8]
 
 #contralesional
 Contra_ICC_HvS_C <- data.frame(volumes$SubjID, volumes$Contra_FSsubfields_volume, volumes$Contra_hippodeep_volume)
@@ -227,7 +267,74 @@ rownames(Contra_ICC_HvS_C) <-paste(Contra_ICC_HvS_C$SubjID) ##subject names shou
 Contra_ICC_HvS_C$SubjID <- NULL  ##subject name column is no longer necessary now that the rows are named by subject
 summary_ICC_HvS_C<-ICC(Contra_ICC_HvS_C,lmer=FALSE)
 ##use the single fixed raters ICC3 value of ICC which is the third row, 2nd column
-ICC_summary[5,3]<-summary_ICC_HvS_C$results[3,2]
+ICC_summary[5,5]<-summary_ICC_HvS_C$results[3,2]
+##lower bound
+ICC_summary[5,6]<-summary_ICC_HvS_C$results[3,7]
+##upper bound
+ICC_summary[5,7]<-summary_ICC_HvS_C$results[3,8]
+
+
+
+
+#Subfields vs Aseg
+ICC_summary[6,1]<-"FSsubfields vs FSAseg"
+
+##ipsilesional
+IPSI_ICC_SFvsFS <- data.frame(volumes$SubjID, volumes$Ipsi_FSsubfields_volume, volumes$Ipsi_FSaseg_volume)
+names(IPSI_ICC_SFvsFS) <- c("SubjID", "Ipsi_Subfields", "Ipsi_Aseg")
+rownames(IPSI_ICC_SFvsFS) <-paste(IPSI_ICC_SFvsFS$SubjID)
+IPSI_ICC_SFvsFS$SubjID <- NULL
+summary_ICC_SFvsFS_I<-ICC(IPSI_ICC_SFvsFS,lmer=FALSE)
+ICC_summary[6,2]<-summary_ICC_SFvsFS_I$results[3,2]
+##lower bound
+ICC_summary[6,3]<-summary_ICC_SFvsFS_I$results[3,7]
+##upper bound
+ICC_summary[6,4]<-summary_ICC_SFvsFS_I$results[3,8]
+
+#contralesional
+Contra_ICC_SFvsFS_C <- data.frame(volumes$SubjID, volumes$Contra_FSsubfields_volume, volumes$Contra_FSaseg_volume)
+names(Contra_ICC_SFvsFS_C) <- c("SubjID", "Contra_Subfields", "Contra_Aseg")
+rownames(Contra_ICC_SFvsFS_C) <-paste(Contra_ICC_SFvsFS_C$SubjID) ##subject names should be used as row names
+Contra_ICC_SFvsFS_C$SubjID <- NULL  ##subject name column is no longer necessary now that the rows are named by subject
+summary_ICC_SFvsFS_C<-ICC(Contra_ICC_SFvsFS_C,lmer=FALSE)
+##use the single fixed raters ICC3 value of ICC which is the third row, 2nd column
+ICC_summary[6,5]<-summary_ICC_SFvsFS_C$results[3,2]
+##lower bound
+ICC_summary[6,6]<-summary_ICC_SFvsFS_C$results[3,7]
+##upper bound
+ICC_summary[6,7]<-summary_ICC_SFvsFS_C$results[3,8]
+
+
+
+
+#Aseg vs Hippodeep
+ICC_summary[7,1]<-"FSAseg vs Hippodeep"
+
+##ipsilesional
+IPSI_ICC_FSvH <- data.frame(volumes$SubjID, volumes$Ipsi_hippodeep_volume, volumes$Ipsi_FSaseg_volume)
+names(IPSI_ICC_FSvH) <- c("SubjID", "Ipsi_Hippodeep", "Ipsi_Aseg")
+rownames(IPSI_ICC_FSvH) <-paste(IPSI_ICC_FSvH$SubjID)
+IPSI_ICC_FSvH$SubjID <- NULL
+summary_ICC_FSvH_I<-ICC(IPSI_ICC_FSvH,lmer=FALSE)
+ICC_summary[7,2]<-summary_ICC_FSvH_I$results[3,2]
+##lower bound
+ICC_summary[7,3]<-summary_ICC_FSvH_I$results[3,7]
+##upper bound
+ICC_summary[7,4]<-summary_ICC_FSvH_I$results[3,8]
+
+#contralesional
+Contra_ICC_FSvH <- data.frame(volumes$SubjID, volumes$Contra_hippodeep_volume, volumes$Contra_FSaseg_volume)
+names(Contra_ICC_FSvH) <- c("SubjID", "Contra_Subfields", "Contra_Aseg")
+rownames(Contra_ICC_FSvH) <-paste(Contra_ICC_FSvH$SubjID) ##subject names should be used as row names
+Contra_ICC_FSvH$SubjID <- NULL  ##subject name column is no longer necessary now that the rows are named by subject
+summary_ICC_FSvH_C<-ICC(Contra_ICC_FSvH,lmer=FALSE)
+##use the single fixed raters ICC3 value of ICC which is the third row, 2nd column
+ICC_summary[7,5]<-summary_ICC_FSvH_C$results[3,2]
+##lower bound
+ICC_summary[7,6]<-summary_ICC_FSvH_C$results[3,7]
+##upper bound
+ICC_summary[7,7]<-summary_ICC_FSvH_C$results[3,8]
+
 
 ICC_summary
 
